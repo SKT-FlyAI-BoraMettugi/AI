@@ -76,14 +76,43 @@ training_args = TrainingArguments(
 
 # 학습
 from transformers import Trainer
+import mlflow
+from mlflow.models import infer_signature
 
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=tokenized_datasets,
-)
+mlflow.set_experiment("llama-3.2_파인튜닝")
 
-trainer.train()
+with mlflow.start_run():
+    mlflow.log_params({
+        "model_name": model_name,
+        "lora_r": lora_config.r,
+        "lora_alpha": lora_config.lora_alpha,
+        "lora_dropout": lora_config.lora_dropout,
+        "learning_rate": training_args.learning_rate,
+        "num_train_epochs": training_args.num_train_epochs,
+        "per_device_train_batch_size": training_args.per_device_train_batch_size,
+        "gradient_accumulation_steps": training_args.gradient_accumulation_steps,
+    })
 
-model.save_pretrained("./bllossom_finetuned")
-tokenizer.save_pretrained("./bllossom_finetuned")
+    # 기존의 학습 코드
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=tokenized_datasets,
+    )
+
+    trainer.train()
+
+    # 학습 후 메트릭 기록
+    train_metrics = trainer.evaluate()
+    mlflow.log_metrics(train_metrics)
+
+    # 모델 저장 및 MLflow에 기록
+    model.save_pretrained("./bllossom_finetuned")
+    tokenizer.save_pretrained("./bllossom_finetuned")
+    
+    # MLflow에 모델 아티팩트 저장
+    mlflow.transformers.log_model(
+        transformers_model=model,
+        artifact_path="model",
+        signature=infer_signature(tokenized_datasets["input_ids"], model.generate(tokenized_datasets["input_ids"])),
+    )
