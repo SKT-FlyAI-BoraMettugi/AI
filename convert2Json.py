@@ -1,6 +1,15 @@
 import pandas as pd
 import json
 
+import os
+
+input_dir = '/content/drive/MyDrive/colab_outputs/'
+output_dir = '/content/drive/MyDrive/colab_json_outputs/'
+
+# 입력 및 출력 폴더 생성
+os.makedirs(input_dir, exist_ok=True)
+os.makedirs(output_dir, exist_ok=True)
+
 # 디렉토리 내 파일 순회
 for file_name in os.listdir(input_dir):
     if file_name.startswith('output_') and file_name.endswith('.csv'):
