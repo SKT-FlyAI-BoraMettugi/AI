@@ -4,9 +4,7 @@
 
 2. ComfyUI 설치 파일 다운로드 + 압축 풀기
 
-    - <code>
-        ./sh getting-start.sh
-      </code>
+    - `./sh getting-start.sh`
 
 3. .\ComfyUI_windows_portable\ComfyUI\requirements.txt 설치
 
@@ -19,13 +17,9 @@
         - 새로운 ComfyUI workflow를 불러왔을때 자동으로 설치해야 하는 custom node들을 인식하여 편리함
     - [Update All]
         - ComfyUI update를 한번에 해줘서 편리함
-    - <code>
-        cd .\ComfyUI_windows_portable\ComfyUI\custom_nodes
-      </code>
+    - `cd .\ComfyUI_windows_portable\ComfyUI\custom_nodes`
       <br>
-      <code>
-        git clone https://github.com/ltdrdata/ComfyUI-Manager
-      </code>
+      `git clone https://github.com/ltdrdata/ComfyUI-Manager`
         
 6. main.py 실행하여 ComfyUI manager 설치 확인
     - 우측 상단에 manager 버튼
