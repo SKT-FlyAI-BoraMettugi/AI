@@ -6,3 +6,7 @@ bllossom_finetune
 bllossom_finetuned
 colab_json_outputs
 logs
+__pycache__
+.DS_Store
+.idea
+Nolli-test

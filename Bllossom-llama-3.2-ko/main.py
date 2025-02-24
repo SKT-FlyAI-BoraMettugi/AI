@@ -2,6 +2,7 @@ from data_loader import load_data
 from model_loader import load_model
 from tokenizer_loader import load_tokenizer
 from data_processing import tokenize_function
+from model_trainer import train_model
 
 # 데이터 로드 (훈련 & 검증 데이터 분리)
 train_dataset, validation_dataset = load_data('test.jsonl', 0.2)
@@ -22,3 +23,4 @@ tokenized_validation_dataset = validation_dataset.map(
     remove_columns=["text"]
 )
 
+model = train_model('Nolli-test', model, tokenizer, tokenized_train_dataset, tokenized_validation_dataset)
