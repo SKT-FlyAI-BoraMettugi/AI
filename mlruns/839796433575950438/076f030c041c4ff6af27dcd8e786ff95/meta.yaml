@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/ai_dev/AI/mlruns/839796433575950438/076f030c041c4ff6af27dcd8e786ff95/artifacts
+end_time: 1740011082014
+entry_point_name: ''
+experiment_id: '839796433575950438'
+lifecycle_stage: active
+run_id: 076f030c041c4ff6af27dcd8e786ff95
+run_name: serious-ox-553
+run_uuid: 076f030c041c4ff6af27dcd8e786ff95
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1740011043450
+status: 4
+tags: []
+user_id: '003'

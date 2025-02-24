@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/ai_dev/AI/mlruns/839796433575950438/ccf727429f7147ed9ef788d4364f6afe/artifacts
+end_time: 1739969903151
+entry_point_name: ''
+experiment_id: '839796433575950438'
+lifecycle_stage: active
+run_id: ccf727429f7147ed9ef788d4364f6afe
+run_name: orderly-gnu-302
+run_uuid: ccf727429f7147ed9ef788d4364f6afe
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1739969858117
+status: 4
+tags: []
+user_id: '003'

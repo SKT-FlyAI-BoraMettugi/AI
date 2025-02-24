@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/ai_dev/AI/mlruns/839796433575950438/5d3ef46a06e24e0eb6a8e643a6c13e39/artifacts
+end_time: 1740025299267
+entry_point_name: ''
+experiment_id: '839796433575950438'
+lifecycle_stage: active
+run_id: 5d3ef46a06e24e0eb6a8e643a6c13e39
+run_name: handsome-skunk-517
+run_uuid: 5d3ef46a06e24e0eb6a8e643a6c13e39
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1740012226106
+status: 3
+tags: []
+user_id: '003'

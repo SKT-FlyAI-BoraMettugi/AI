@@ -5,15 +5,15 @@ from peft import LoraConfig, get_peft_model
 import torch
 
 # 데이터 로드
-with open("train_data.json", "r", encoding="utf-8") as f:
-    raw_data = json.load(f)
+with open("merged_output.jsonl", "r", encoding="utf-8") as f:
+    raw_data = [json.loads(line) for line in f]
 
 # 메시지 포맷 변경
 def format_messages(example):
     messages = example["messages"]
     formatted_text = ""
     
-    for i in range(len(messages)-1):
+    for i in range(len(messages)):
         role = messages[i]["role"]
         content = messages[i]["content"]
         
@@ -63,8 +63,8 @@ tokenized_datasets = dataset.map(tokenize_function, batched=True)
 # 학습 설정
 training_args = TrainingArguments(
     output_dir="./bllossom_finetune",
-    per_device_train_batch_size=2,  # GPU VRAM 최적화
-    gradient_accumulation_steps=4,  # 작은 배치로 큰 배치 효과
+    per_device_train_batch_size=4,  # GPU VRAM 최적화
+    gradient_accumulation_steps=2,  # 작은 배치로 큰 배치 효과
     learning_rate=2e-4,
     num_train_epochs=3,
     logging_dir="./logs",
@@ -102,17 +102,19 @@ with mlflow.start_run():
 
     trainer.train()
 
-    # 학습 후 메트릭 기록
-    train_metrics = trainer.evaluate()
-    mlflow.log_metrics(train_metrics)
+    torch.cuda.empty_cache()
+
+    # # 학습 후 메트릭 기록
+    # train_metrics = trainer.evaluate()
+    # mlflow.log_metrics(train_metrics)
 
     # 모델 저장 및 MLflow에 기록
     model.save_pretrained("./bllossom_finetuned")
     tokenizer.save_pretrained("./bllossom_finetuned")
     
-    # MLflow에 모델 아티팩트 저장
-    mlflow.transformers.log_model(
-        transformers_model=model,
-        artifact_path="model",
-        signature=infer_signature(tokenized_datasets["input_ids"], model.generate(tokenized_datasets["input_ids"])),
-    )
+    # # MLflow에 모델 아티팩트 저장
+    # mlflow.transformers.log_model(
+    #     transformers_model=model,
+    #     artifact_path="model",
+    #     signature=infer_signature(tokenized_datasets["input_ids"], model.generate(tokenized_datasets["input_ids"])),
+    # )
