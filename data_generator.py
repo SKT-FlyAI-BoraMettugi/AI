@@ -9,7 +9,7 @@ load_dotenv()
 
 client = OpenAI(api_key = os.getenv('OPENAI_API_KEY'))
 
-def generate_eval_data(theme, diff, questions, batch_size=1):
+def generate_eval_data(theme, diff, questions, batch_size=100):
     result_list = []
 
     for i in range(1, batch_size + 1):
@@ -159,10 +159,10 @@ if not os.path.exists("learning_dataset"):
 try:
     chunk = pd.read_csv(input_file) ## input file 테마 난이도 문제
 
-    for batch in range(30):  # 30번 반복
+    for batch in range(100):  # 100번 반복
         data = []
 
-        print(f"\n🚀 {batch + 1}/30번째 배치 실행 중...")
+        print(f"\n🚀 {batch + 1}/100번째 배치 실행 중...")
 
         for index, row in chunk.iterrows():## 각 문제 별로
             data.extend(generate_eval_data(row['테마'], row['난이도'], row['문제'])) # 100개 생성
@@ -175,7 +175,7 @@ try:
         else:  # 이후 실행부터는 헤더 없이 추가 저장
             df_output.to_csv(output_file, index=False, encoding='utf-8-sig', mode='a', header=False)
         
-        print(f"✅ {batch + 1}/30번째 배치 저장 완료 ({len(data)}개)")
+        print(f"✅ {batch + 1}/100번째 배치 저장 완료 ({len(data)}개)")
 
 except FileNotFoundError:
   print(f"파일이 존재하지 않습니다: {input_file}")
