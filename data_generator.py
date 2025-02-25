@@ -9,11 +9,10 @@ load_dotenv()
 
 client = OpenAI(api_key = os.getenv('OPENAI_API_KEY'))
 
-def generate_eval_data(theme, diff, questions):
+def generate_eval_data(theme, diff, questions, batch_size=1):
     result_list = []
 
-    for i in range(1, 501):  # 10쌍 생성
-
+    for i in range(1, batch_size + 1):
         prompt = f"""
         테마: {theme}
         난이도: {diff}
@@ -153,17 +152,30 @@ def generate_eval_data(theme, diff, questions):
 
 input_file = f"input_data.csv"
 output_file = f"learning_dataset/output_data.csv" ## 공(하) 공(중) 공(상) / 우(하) 우(중) 우(상)
-data = []
+
+if not os.path.exists("learning_dataset"):
+    os.makedirs("learning_dataset")
 
 try:
-  chunk = pd.read_csv(input_file) ## input file 테마 난이도 문제
+    chunk = pd.read_csv(input_file) ## input file 테마 난이도 문제
 
-  for index, row in chunk.iterrows():## 각 문제 별로
-    data.extend(generate_eval_data(row['테마'], row['난이도'], row['문제'])) # 100개 생성
+    for batch in range(30):  # 30번 반복
+        data = []
 
-  df_output = pd.DataFrame(data)
-  df_output.to_csv(output_file, index=False, encoding='utf-8-sig')
-  print(f"출력 데이터 저장 완료: {output_file}")
+        print(f"\n🚀 {batch + 1}/30번째 배치 실행 중...")
+
+        for index, row in chunk.iterrows():## 각 문제 별로
+            data.extend(generate_eval_data(row['테마'], row['난이도'], row['문제'])) # 100개 생성
+
+        df_output = pd.DataFrame(data)
+
+        # 📌 100개씩 생성할 때마다 파일에 저장 (append 모드)
+        if not os.path.exists(output_file):  # 첫 실행이면 헤더 포함
+            df_output.to_csv(output_file, index=False, encoding='utf-8-sig')
+        else:  # 이후 실행부터는 헤더 없이 추가 저장
+            df_output.to_csv(output_file, index=False, encoding='utf-8-sig', mode='a', header=False)
+        
+        print(f"✅ {batch + 1}/30번째 배치 저장 완료 ({len(data)}개)")
 
 except FileNotFoundError:
   print(f"파일이 존재하지 않습니다: {input_file}")
