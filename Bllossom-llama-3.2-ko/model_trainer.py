@@ -2,10 +2,10 @@ import torch
 import mlflow
 import json
 import os
-import deepspeed
+#import deepspeed
 from transformers import Trainer, TrainingArguments
 from accelerate import Accelerator 
-from deepspeed_config import get_deepspeed_config 
+#from deepspeed_config import get_deepspeed_config 
 
 def train_model(experiment_name, model, tokenizer, tokenized_train_dataset, tokenized_validation_dataset):
     # MLflow 실험 설정
@@ -20,37 +20,37 @@ def train_model(experiment_name, model, tokenizer, tokenized_train_dataset, toke
         }
         mlflow.log_params(hyperparams)
 
-        #os.makedirs(experiment_name, exist_ok=True)
-        #with open(f"{experiment_name}/config.json", "w") as f:
-            #json.dump(hyperparams, f)
+        os.makedirs(experiment_name, exist_ok=True)
+        with open(f"{experiment_name}/config.json", "w") as f:
+            json.dump(hyperparams, f)
     
         # DeepSpeed 설정 로드 (별도 파일에서 가져옴)
-        ds_config = get_deepspeed_config(
-            batch_size=hyperparams["batch_size"],
-            gradient_accumulation_steps=2
-        )
+        #ds_config = get_deepspeed_config(
+            #batch_size=hyperparams["batch_size"],
+            #gradient_accumulation_steps=2
+        #)
 
         # TrainingArguments 설정
         training_args = TrainingArguments(
             output_dir=experiment_name,
             per_device_train_batch_size=hyperparams["batch_size"],   # GPU VRAM 최적화
-            gradient_accumulation_steps=ds_config["gradient_accumulation_steps"],  # 작은 배치로 큰 배치 효과
+            gradient_accumulation_steps=2,  # 작은 배치로 큰 배치 효과
             learning_rate=hyperparams["learning_rate"],
             num_train_epochs=hyperparams["num_train_epochs"],
             logging_dir=f"{experiment_name}/logs",
             logging_steps=10,
             save_strategy="epoch",
-            fp16=True, 
+            fp16=True, # AMP 사용
             optim="adamw_torch",
-            deepspeed=ds_config,
+            #deepspeed=ds_config,
         )
 
-        # ✅ DeepSpeed 모델 초기화
-        model, optimizer, _, _ = deepspeed.initialize(
-            model=model,
-            model_parameters=model.parameters(),
-            config=ds_config
-        )
+        # DeepSpeed 모델 초기화
+        #model, optimizer, _, _ = deepspeed.initialize(
+            #model=model,
+            #model_parameters=model.parameters(),
+            #config=ds_config
+        #)
 
         # Trainer 설정
         trainer = Trainer(
@@ -60,10 +60,13 @@ def train_model(experiment_name, model, tokenizer, tokenized_train_dataset, toke
             eval_dataset=tokenized_validation_dataset 
         )
 
+        print("🚀 모델 학습 시작...")
         trainer.train()
+        print("✅ 모델 학습 완료!")
 
-        # 학습 후 성능 평가 결과 기록
+        # 학습 후 성능 평가
         train_metrics = trainer.evaluate()
+        print(f"📊 학습 평가 결과: {train_metrics}")
         mlflow.log_metrics(train_metrics)
 
         # 모델 저장
@@ -71,13 +74,17 @@ def train_model(experiment_name, model, tokenizer, tokenized_train_dataset, toke
         tokenizer.save_pretrained(f"{experiment_name}/finetuned_tokenizer")
 
         # 모델을 AMP 적용 해제 후 저장
-        #accelerator = Accelerator()
-        #unwrapped_model = accelerator.unwrap_model(model) 
+        accelerator = Accelerator()
+        # 모델을 FP32로 변환 후 저장
+        unwrapped_model = accelerator.unwrap_model(model).to(torch.float32)
 
-        #mlflow.pytorch.log_model(unwrapped_model, "model_checkpoint")
+        model_save_path = f"{experiment_name}/finetuned_model.pt"
+        torch.save(unwrapped_model.state_dict(), model_save_path)
 
-        #mlflow.log_artifact(f"{experiment_name}/config.json")  
-        #mlflow.log_artifact(f"{experiment_name}/logs")  
+        mlflow.log_artifact(model_save_path)
+
+        mlflow.log_artifact(f"{experiment_name}/config.json")  
+        mlflow.log_artifact(f"{experiment_name}/logs")  
 
         torch.cuda.empty_cache()
 

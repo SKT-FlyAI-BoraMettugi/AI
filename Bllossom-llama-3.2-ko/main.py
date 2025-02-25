@@ -3,6 +3,7 @@ from model_loader import load_model
 from tokenizer_loader import load_tokenizer
 from data_processing import tokenize_function
 from model_trainer import train_model
+from upload_to_minio import upload_model_to_minio
 
 # 데이터 로드 (훈련 & 검증 데이터 분리)
 train_dataset, validation_dataset = load_data('test.jsonl', 0.2)
@@ -24,3 +25,6 @@ tokenized_validation_dataset = validation_dataset.map(
 )
 
 model = train_model('Nolli-test', model, tokenizer, tokenized_train_dataset, tokenized_validation_dataset)
+
+# MinIO에 업로드
+#upload_model_to_minio("Nolli-test/finetuned_model", "models")

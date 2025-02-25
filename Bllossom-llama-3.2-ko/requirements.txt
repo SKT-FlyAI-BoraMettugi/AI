@@ -5,4 +5,5 @@ openai
 torch
 bitsandbytes
 mlflow
-deepspeed
+#deepspeed
+mpi4py
