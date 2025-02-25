@@ -12,7 +12,7 @@ client = OpenAI(api_key = os.getenv('OPENAI_API_KEY'))
 def generate_eval_data(theme, diff, questions):
     result_list = []
 
-    for i in range(1, 1001):  # 10쌍 생성
+    for i in range(1, 501):  # 10쌍 생성
 
         prompt = f"""
         테마: {theme}
@@ -144,6 +144,8 @@ def generate_eval_data(theme, diff, questions):
             "question": questions,
             "생성된 답변": generated_text
         })
+
+        print(f'{i}번째 데이터')
 
     return result_list
 
