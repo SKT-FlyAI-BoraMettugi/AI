@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # ✅ MinIO 컨테이너
+  minio:
+    image: minio/minio
+    container_name: minio
+    restart: always
+    ports:
+      - "9000:9000"  # S3 API 포트
+      - "9001:9001"  # 웹 콘솔 포트
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+
+  # ✅ Airflow 데이터베이스 (PostgreSQL)
+  airflow-postgres:
+    image: postgres:13
+    container_name: airflow-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  # ✅ Airflow 메시지 브로커 (Redis)
+  airflow-redis:
+    image: redis:latest
+    container_name: airflow-redis
+    restart: always
+
+  # ✅ Airflow 웹 서버 (웹 UI)
+  airflow-webserver:
+    image: apache/airflow:2.6.3
+    container_name: airflow-webserver
+    restart: always
+    depends_on:
+      - airflow-postgres
+      - airflow-redis
+    environment:
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN}
+      AIRFLOW__CELERY__BROKER_URL: ${AIRFLOW_BROKER_URL}
+      AIRFLOW__CELERY__RESULT_BACKEND: ${AIRFLOW_RESULT_BACKEND}
+    command: webserver
+    ports:
+      - "8080:8080"
+    volumes:
+      - airflow-dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+
+  # ✅ Airflow 스케줄러 (DAG 실행 일정 관리)
+  airflow-scheduler:
+    image: apache/airflow:2.6.3
+    container_name: airflow-scheduler
+    restart: always
+    depends_on:
+      - airflow-webserver
+    environment:
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN}
+      AIRFLOW__CELERY__BROKER_URL: ${AIRFLOW_BROKER_URL}
+      AIRFLOW__CELERY__RESULT_BACKEND: ${AIRFLOW_RESULT_BACKEND}
+    command: scheduler
+    volumes:
+      - airflow-dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+
+  # ✅ Airflow 워커 (DAG 실행 담당)
+  airflow-worker:
+    image: apache/airflow:2.6.3
+    container_name: airflow-worker
+    restart: always
+    depends_on:
+      - airflow-scheduler
+    environment:
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN}
+      AIRFLOW__CELERY__BROKER_URL: ${AIRFLOW_BROKER_URL}
+      AIRFLOW__CELERY__RESULT_BACKEND: ${AIRFLOW_RESULT_BACKEND}
+    command: celery worker
+    volumes:
+      - airflow-dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+
+  # ✅ MLflow (모델 실험 관리)
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow  # 커스텀 MLflow 이미지 사용
+    container_name: mlflow
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
+      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+    depends_on:
+      - airflow-postgres
+
+volumes:
+  postgres-data:
+  airflow-dags:
+  airflow-logs:
+  minio-data:
