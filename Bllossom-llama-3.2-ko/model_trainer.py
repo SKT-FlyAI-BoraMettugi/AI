@@ -7,7 +7,7 @@ from transformers import Trainer, TrainingArguments
 from accelerate import Accelerator 
 #from deepspeed_config import get_deepspeed_config 
 
-def train_model(experiment_name, model, tokenizer, tokenized_train_dataset, tokenized_validation_dataset, learning_rate, batch_size, gradient_accumulation_steps, num_train_epochs):
+def train_model(experiment_name, model, tokenizer, tokenized_train_dataset, tokenized_validation_dataset):
     # MLflow 실험 설정
     mlflow.set_experiment(experiment_name)
 
