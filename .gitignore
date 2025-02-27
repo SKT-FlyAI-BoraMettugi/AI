@@ -10,6 +10,7 @@ __pycache__
 .DS_Store
 .idea
 Nolli-test
+Nolli
 Optuna-Tuning
 Stable-diffusion-3.5-large/ComfyUI_windows_portable/
 Stable-diffusion-3.5-large/ComfyUI_windows_portable/*

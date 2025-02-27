@@ -27,4 +27,4 @@ tokenized_validation_dataset = validation_dataset.map(
 model = train_model('Nolli', model, tokenizer, tokenized_train_dataset, tokenized_validation_dataset)
 
 # MinIO에 업로드
-#upload_model_to_minio("Nolli-test/finetuned_model", "models")
+upload_model_to_minio("Nolli-test/finetuned_model", "models")
