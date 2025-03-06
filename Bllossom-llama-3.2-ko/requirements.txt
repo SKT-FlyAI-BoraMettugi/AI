@@ -1,0 +1,10 @@
+python-dotenv
+numpy
+pandas
+openai
+torch
+bitsandbytes
+mlflow
+#deepspeed
+mpi4py
+optuna
