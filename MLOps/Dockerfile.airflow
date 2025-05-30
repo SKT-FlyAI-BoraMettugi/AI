@@ -1,5 +1,11 @@
-FROM apache/airflow:2.7.2-python3.9
+FROM apache/airflow:2.8.4-python3.10
+
+USER root
+
+RUN apt-get update && \
+    apt-get install -y libmpich-dev libopenmpi-dev
 
 USER airflow
-RUN pip install --no-cache-dir psycopg2-binary
 
+RUN pip install --no-cache-dir mpi4py
+RUN pip install --no-cache-dir mlflow psycopg2-binary python-dotenv numpy pandas openai torch bitsandbytes optuna datasets transformers peft accelerate requests boto3 deepspeed

@@ -1,6 +1,7 @@
 .env
 *.json
 *.jsonl
+*.csv
 mlruns
 bllossom_finetune
 bllossom_finetuned
