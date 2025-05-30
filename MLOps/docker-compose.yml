@@ -1,14 +1,30 @@
-version: '3.8'
+version: "3.9"
 
 services:
-  # ✅ MinIO 컨테이너
+  # Postgres
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      retries: 5
+
+  # MinIO
   minio:
     image: minio/minio
     container_name: minio
     restart: always
     ports:
-      - "9000:9000"  # S3 API 포트
-      - "9001:9001"  # 웹 콘솔 포트
+      - "9000:9000" # S3 API 포트
+      - "9001:9001" # 웹 콘솔 포트
     environment:
       MINIO_ROOT_USER: ${MINIO_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
@@ -16,90 +32,95 @@ services:
     volumes:
       - minio-data:/data
 
-  # ✅ Airflow 메시지 브로커 (Redis)
-  airflow-redis:
-    image: redis:latest
-    container_name: airflow-redis
+  # MLflow (모델 실험 관리)
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: mlflow
     restart: always
+    ports:
+      - "5050:5000"
+    environment:
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
+      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    command: >
+      mlflow server
+      --backend-store-uri ${MLFLOW_BACKEND_STORE_URI}
+      --default-artifact-root ${MLFLOW_ARTIFACT_ROOT}
+      --host 0.0.0.0
+      --port 5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
 
-  # ✅ Airflow 웹 서버 (웹 UI)
+  # Airflow 웹 서버 (웹 UI)
   airflow-webserver:
     build:
       context: .
       dockerfile: Dockerfile.airflow
     container_name: airflow-webserver
     restart: always
-    depends_on:
-      - airflow-redis
-    environment:
-      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN}
-      AIRFLOW__CELERY__BROKER_URL: ${AIRFLOW_BROKER_URL}
-      AIRFLOW__CELERY__RESULT_BACKEND: ${AIRFLOW_RESULT_BACKEND}
-    command: webserver
     ports:
       - "8080:8080"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
+      AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW_LOAD_EXAMPLES}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN}
+      AIRFLOW__LOGGING__LOGGING_MASK_SECRETS: "False"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      _AIRFLOW_WWW_USER_FIRSTNAME: ${AIRFLOW_ADMIN_FIRSTNAME}
+      _AIRFLOW_WWW_USER_LASTNAME: ${AIRFLOW_ADMIN_LASTNAME}
+      _AIRFLOW_WWW_USER_EMAIL: ${AIRFLOW_ADMIN_EMAIL}
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
+    command: >
+      bash -c "airflow db migrate && \
+        if ! airflow users list | grep -q ${AIRFLOW_ADMIN_USERNAME}; then \
+          airflow users create --username ${AIRFLOW_ADMIN_USERNAME} --firstname ${AIRFLOW_ADMIN_FIRSTNAME} --lastname ${AIRFLOW_ADMIN_LASTNAME} --role Admin --email ${AIRFLOW_ADMIN_EMAIL} --password ${AIRFLOW_ADMIN_PASSWORD}; \
+        fi && \
+        airflow webserver"
     volumes:
-      - airflow-dags:/opt/airflow/dags
-      - airflow-logs:/opt/airflow/logs
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./train:/opt/airflow/train
+    depends_on:
+      postgres:
+        condition: service_healthy
 
-  # ✅ Airflow 스케줄러 (DAG 실행 일정 관리)
+  # Airflow 스케줄러 (DAG 실행 일정 관리)
   airflow-scheduler:
     build:
       context: .
-      dockerfile: Dockerfile.airflow 
+      dockerfile: Dockerfile.airflow
     container_name: airflow-scheduler
     restart: always
-    depends_on:
-      - airflow-webserver
     environment:
       AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN}
-      AIRFLOW__CELERY__BROKER_URL: ${AIRFLOW_BROKER_URL}
-      AIRFLOW__CELERY__RESULT_BACKEND: ${AIRFLOW_RESULT_BACKEND}
-    command: scheduler
-    volumes:
-      - airflow-dags:/opt/airflow/dags
-      - airflow-logs:/opt/airflow/logs
-
-  # ✅ Airflow 워커 (DAG 실행 담당)
-  airflow-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.airflow
-    container_name: airflow-worker
-    restart: always
-    depends_on:
-      - airflow-scheduler
-    environment:
-      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN}
-      AIRFLOW__CELERY__BROKER_URL: ${AIRFLOW_BROKER_URL}
-      AIRFLOW__CELERY__RESULT_BACKEND: ${AIRFLOW_RESULT_BACKEND}
-    command: celery worker
-    volumes:
-      - airflow-dags:/opt/airflow/dags
-      - airflow-logs:/opt/airflow/logs
-
-  # ✅ MLflow (모델 실험 관리)
-  mlflow:
-    build:
-      context: .
-      dockerfile: Dockerfile.mlflow  # 커스텀 MLflow 이미지 사용
-    container_name: mlflow
-    restart: always
-    ports:
-      - "5000:5000"
-    environment:
+      AIRFLOW__LOGGING__LOGGING_MASK_SECRETS: "False"
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
       MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
       MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      MINIO_URL: ${MINIO_URL}
+    command: ["airflow", "scheduler"]
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./train:/opt/airflow/train
     depends_on:
-      - minio
+      - airflow-webserver
 
 volumes:
-  airflow-dags:
-  airflow-logs:
+  postgres-db-volume:
   minio-data:
