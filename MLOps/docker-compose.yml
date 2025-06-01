@@ -1,54 +1,54 @@
-version: "3.9"
+version: "3.9" # Docker Compose 버전
 
 services:
   # Postgres
   postgres:
-    image: postgres:13
-    container_name: postgres
-    restart: always
+    image: postgres:13 # Airflow와 MLflow의 메타데이터를 저장할 Postgres 13 이미지 사용
+    container_name: postgres # 컨테이너 이름 설정
+    restart: always # 컨테이너가 꺼져도 항상 재시작되도록 설정
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER} # Postgres 사용자명
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # Postgres 비밀번호
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres-db-volume:/var/lib/postgresql/data # DB 데이터를 보존할 볼륨 마운트
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # 초기 설정 SQL 스크립트 마운트
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
-      interval: 10s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"] # DB가 실행 가능한 상태인지 확인
+      interval: 10s # 헬스체크 주기
+      retries: 5 # 최대 재시도 횟수
 
   # MinIO
   minio:
-    image: minio/minio
-    container_name: minio
-    restart: always
+    image: minio/minio # S3 호환 오브젝트 스토리지인 MinIO 이미지 사용
+    container_name: minio # 컨테이너 이름 설정
+    restart: always # 컨테이너가 꺼져도 항상 재시작되도록 설정
     ports:
       - "9000:9000" # S3 API 포트
       - "9001:9001" # 웹 콘솔 포트
     environment:
-      MINIO_ROOT_USER: ${MINIO_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
-    command: server /data --console-address ":9001"
+      MINIO_ROOT_USER: ${MINIO_USER} # 관리자 계정
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD} # 관리자 비밀번호
+    command: server /data --console-address ":9001" # 데이터 경로 설정 및 웹 콘솔 포트 지정
     volumes:
-      - minio-data:/data
+      - minio-data:/data # MinIO 데이터 보존을 위한 볼륨 마운트
 
   # MLflow (모델 실험 관리)
   mlflow:
     build:
-      context: .
-      dockerfile: Dockerfile.mlflow
-    container_name: mlflow
-    restart: always
+      context: . # 현재 디렉토리를 컨텍스트로 사용하여 Dockerfile 빌드
+      dockerfile: Dockerfile.mlflow # 커스텀 MLflow Dockerfile 사용
+    container_name: mlflow # 컨테이너 이름 설정
+    restart: always # 컨테이너가 꺼져도 항상 재시작되도록 설정
     ports:
-      - "5050:5000"
+      - "5050:5000" # MLflow UI 접속 포트
     environment:
-      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
-      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
-      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT}
-      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-    command: >
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI} # MLflow가 사용할 Tracking 서버 주소
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI} # 실험 메타데이터 저장용 DB 주소
+      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT} # 모델 파일 저장 위치
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL} # MinIO 엔드포인트
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID} # MinIO 계정
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY} # MinIO 비밀번호
+    command: > # MLflow 서버 실행 명령어
       mlflow server
       --backend-store-uri ${MLFLOW_BACKEND_STORE_URI}
       --default-artifact-root ${MLFLOW_ARTIFACT_ROOT}
@@ -56,71 +56,71 @@ services:
       --port 5000
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_healthy # Postgres가 헬시 상태일 때 실행
       minio:
-        condition: service_started
+        condition: service_started # MinIO가 시작된 후 실행
 
   # Airflow 웹 서버 (웹 UI)
   airflow-webserver:
     build:
-      context: .
-      dockerfile: Dockerfile.airflow
-    container_name: airflow-webserver
-    restart: always
+      context: . # 현재 디렉토리를 컨텍스트로 사용하여 Dockerfile 빌드
+      dockerfile: Dockerfile.airflow # 커스텀 Airflow Dockerfile 사용
+    container_name: airflow-webserver # 컨테이너 이름 설정
+    restart: always # 컨테이너가 꺼져도 항상 재시작되도록 설정
     ports:
-      - "8080:8080"
+      - "8080:8080" # Airflow 웹 UI 접속 포트
     environment:
-      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
-      AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW_LOAD_EXAMPLES}
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN}
-      AIRFLOW__LOGGING__LOGGING_MASK_SECRETS: "False"
-      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USERNAME}
-      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
-      _AIRFLOW_WWW_USER_FIRSTNAME: ${AIRFLOW_ADMIN_FIRSTNAME}
-      _AIRFLOW_WWW_USER_LASTNAME: ${AIRFLOW_ADMIN_LASTNAME}
-      _AIRFLOW_WWW_USER_EMAIL: ${AIRFLOW_ADMIN_EMAIL}
-      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
-    command: >
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR} # 사용할 Executor 타입
+      AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW_LOAD_EXAMPLES} # 예제 DAG 로드 여부
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN} # Airflow DB 연결 주소
+      AIRFLOW__LOGGING__LOGGING_MASK_SECRETS: "False" # 로그에서 민감정보 마스킹 여부
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USERNAME} # 관리자 유저 이름
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD} # 관리자 비밀번호
+      _AIRFLOW_WWW_USER_FIRSTNAME: ${AIRFLOW_ADMIN_FIRSTNAME} # 관리자 이름
+      _AIRFLOW_WWW_USER_LASTNAME: ${AIRFLOW_ADMIN_LASTNAME} # 관리자 성
+      _AIRFLOW_WWW_USER_EMAIL: ${AIRFLOW_ADMIN_EMAIL} # 관리자 이메일
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI} # 실험 메타데이터 저장용 DB 주소
+    command: > # DB 마이그레이션 -> 관리자 유저 없으면 생성 -> 웹서버 실행
       bash -c "airflow db migrate && \
         if ! airflow users list | grep -q ${AIRFLOW_ADMIN_USERNAME}; then \
           airflow users create --username ${AIRFLOW_ADMIN_USERNAME} --firstname ${AIRFLOW_ADMIN_FIRSTNAME} --lastname ${AIRFLOW_ADMIN_LASTNAME} --role Admin --email ${AIRFLOW_ADMIN_EMAIL} --password ${AIRFLOW_ADMIN_PASSWORD}; \
         fi && \
         airflow webserver"
     volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./train:/opt/airflow/train
+      - ./dags:/opt/airflow/dags # DAG 스크립트 경로
+      - ./logs:/opt/airflow/logs # 로그 저장 경로
+      - ./train:/opt/airflow/train # 학습 코드 경로
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_healthy # Postgres가 헬시 상태일 때 실행
 
   # Airflow 스케줄러 (DAG 실행 일정 관리)
   airflow-scheduler:
     build:
-      context: .
-      dockerfile: Dockerfile.airflow
-    container_name: airflow-scheduler
-    restart: always
+      context: . # 현재 디렉토리를 컨텍스트로 사용하여 Dockerfile 빌드
+      dockerfile: Dockerfile.airflow # 커스텀 Airflow Dockerfile 사용
+    container_name: airflow-scheduler # 컨테이너 이름 설정
+    restart: always # 컨테이너가 꺼져도 항상 재시작되도록 설정
     environment:
-      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN}
-      AIRFLOW__LOGGING__LOGGING_MASK_SECRETS: "False"
-      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
-      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
-      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT}
-      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
-      MINIO_URL: ${MINIO_URL}
-    command: ["airflow", "scheduler"]
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR} # 사용할 Executor 타입
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_SQL_ALCHEMY_CONN} # Airflow DB 연결 주소
+      AIRFLOW__LOGGING__LOGGING_MASK_SECRETS: "False" # 로그에서 민감정보 마스킹 여부
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI} # MLflow가 사용할 Tracking 서버 주소
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI} # 실험 메타데이터 저장용 DB 주소
+      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT} # 모델 파일 저장 위치
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL} # MinIO 엔드포인트
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID} # MinIO 계정
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY} # MinIO 비밀번호
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME} # 사용할 버킷 이름
+      MINIO_URL: ${MINIO_URL} # MinIO 주소
+    command: ["airflow", "scheduler"] # Airflow 스케줄러 실행
     volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./train:/opt/airflow/train
+      - ./dags:/opt/airflow/dags # DAG 스크립트 경로
+      - ./logs:/opt/airflow/logs # 로그 저장 경로
+      - ./train:/opt/airflow/train # 학습 코드 경로
     depends_on:
-      - airflow-webserver
+      - airflow-webserver # 웹 서버가 실행된 이후 실행
 
-volumes:
-  postgres-db-volume:
-  minio-data:
+volumes: # 위에서 선언한 볼륨들을 정의
+  postgres-db-volume: # Postgres 데이터 보존용 볼륨
+  minio-data: # MinIO 오브젝트 데이터 보존용 볼륨
